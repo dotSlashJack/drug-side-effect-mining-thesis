@@ -1,0 +1,195 @@
+---
+title: "Side Effect Table Generator"
+author: "Jack Hester"
+date: "3/20/2019"
+output: html_document
+---
+
+```{r setup, results='hide', echo=FALSE, include=FALSE}
+#install.packages('knitr')
+knitr::opts_chunk$set(echo = FALSE)
+library(stringr)
+#install.packages('dplyr', dependencies = TRUE, repos = "http://cran.us.r-project.org")
+#install.packages("tm", dependencies=TRUE, repos = "http://cran.us.r-project.org")
+#install.packages("tm",dependencies=TRUE)
+#install.packages('devtools')
+#library('devtools')
+library('tm')
+library('data.table')
+#devtools::install_cran("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+library("qdap")
+library("tau")
+library(dplyr)
+library(tidytext)
+require(reshape2)
+```
+
+```{r import, results='hide', echo=TRUE}
+#mergedConllTables <- read.csv('/Users/jhester/Desktop/thesis-code/old-merged-table.csv')
+se.table <- read.csv('/Users/jhester/Desktop/thesis-code/new-drug-ngram-table-complete.csv')
+#se.table <- read.csv('/Users/jhester/Desktop/thesis-code/ngram-table-complete-older-drugs.csv')
+
+```
+##Do major cleanup on the imported dt, removing common words and frequently useless words
+
+dt: copy of table including all phrases tagged as containing 1+ potential side-effects
+
+```{r refineTable, echo=TRUE, results='hide'}
+dt <- se.table
+#get only where SE was identified (1s in isSE)
+dt <- dt[dt$isSE %in% c('1'),] 
+
+#remove the key verbs that were originally used
+indicators <- c("Feel", "feel", "Feels", "feels", "Feeling", "feeling", "Felt", "felt", "Lose", " lose ", "Loses", "loses", "Losing", "losing", "Lost", "lost", "Start", "start", "Starts", "starts", "Starting", "starting", "Started", "started", "Cause", "cause", "Causes", "causes", "Causing", "causing", "Caused", "caused", "Develop", "develop", "Develops", "develops", "Developing", "developing", "Developed", "developed", "Experience", "experience",  "Experiences", "experiences", "Experienced", "experienced", "Experiencing", "experiencing","Notice", "notice", "Notices", "notices", "Noticed", "noticed", "Noticing", "noticing"," Get ", " get ", " Gets ", " gets ", "Getting", "getting", "Got", "got", "Become", "become", "Becomes", "becomes", "Becoming", "becoming", "Became", "became", "Change", "change", "Changes", "changes", "Changed", "changed", "Changing", "changing", "Give", "give", "Gives", "gives", "Given", "given", "Gave", "gave", "Giving", "giving", " Have ", " have ", " Had ", " had ", " Having ", " having ", " Has ", " has ")
+pronouns<-c(' I ', ' Ive ',' You ', ' He ', ' She', ' It ', ' They',' Me ', ' You ', ' Him ', ' Her ', ' It ', ' My ', ' Mine ', ' Your ', ' Yours ', ' His ', ' Her ', ' Hers ', ' Its ',' Who ', ' Whom ', ' Whose ', ' What ', ' Which ',' Another ',  ' Each ', ' Everything ', ' Nobody ', ' Either ', ' Someone ',' Who ',' Whom ', ' Whose ', ' That ', ' Which ',' Myself ', ' Yourself ', ' Himself ', ' Herself ', ' Itself ',' This ',' That ',' We ',' Us ',' You ',' Them ',' That ',' Which ',' Who ',' Whom ',' Whose ',' Whichever ',' Whoever ',' Whomever ',' These ',' Those ', ' Too ')
+
+#other filters based on frequency analysis of words, includes to be verbs, drug names, time periods, etc.
+otherFilters <- c('Advair Diskus', 'Advair', 'Crestor', 'Januvia', 'Lantus', 'Lantus Solostar', 'Lyrica', 'Nexium','Spiriva','Synthroid','Ventolin HFA', 'Ventolin','Vyvanse','Actemra', 'Ajovy', 'Amiovig', ' Biktarvy', 'Dupixent', 'Kevzara', 'Mayyret', 'Ozempic', 'Rhofade', 'Shingrix', 'Siliq', 'Symproic', ' Trulance', 'Actemra ', 'Ajovy ', 'Amiovig ', 'Biktarvy ', 'Dupixent ', 'Kevzara', 'Mayyret ', 'Ozempic ', 'Rhofade ', 'Shingrix ', 'Siliq ', 'Symproic', 'Trulance',' Am ', ' Is ', ' Are ', ' Was ', ' Were ', ' Be ', ' Being ', ' Been ', ' effects', ' effect ',' side effect ', ' Side effects ', ' Very ',' Only ', ' Really ', ' Very ', ' Since ', ' Just ', ' Also ', ' Bad ', ' Week ', ' Week',' Few ', ' Still ', ' Day ', ' Day',' Month ', ' Months ', ' Year', ' Years ', ' Decade ', ' Hour ', ' Hours ', ' Morning ', ' Mornings ', ' Afternoon ', 'After ', 'Afternoons ', ' Evening ', ' Evenings ', ' Night ', ' Nighttime', ' Night', 'Night ', ' Take ', ' Took ', ' Im ', ' Little ', ' Lot ', ' Thing ', ' Worse', ' Anything ', 'Anything ', ' Anything', 'Thing ', ' Things', 'Things ', ' Before ', 'Before ', ' After ', ' Yes ', ' No ', ' Yep ', ' Am ', ' Going ', ' Gone ', 'Like ', ' Far ', ' Take ', 'Taking', 'Makes', 'make', 'Until', 'While',' Yet ', "I\'m", 'i\'m','Yesterday', ' Able', 'Actually', 'Ability')
+otherFilters.lower <- tolower(otherFilters)
+#set these to descending order to avoid partial replaces of words
+indicators <- indicators[order(nchar(indicators), indicators, decreasing = TRUE)]
+pronouns <- pronouns[order(nchar(pronouns), pronouns, decreasing = TRUE)]
+pronouns.lower <- tolower(pronouns)
+for(item in indicators){
+  dt$ngram<-str_replace(dt$ngram, item, ' ')
+}
+for(item in pronouns){
+  dt$ngram<-str_replace(dt$ngram, item, ' ')
+}
+for(item in pronouns.lower){
+  dt$ngram<-str_replace(dt$ngram, item, ' ')
+}
+for(item in otherFilters.lower){
+  dt$ngram<-str_replace(dt$ngram, item, ' ')
+}
+for(item in otherFilters){
+  dt$ngram<-str_replace(dt$ngram, item, ' ')
+}
+dt$ngram<-str_replace(dt$ngram, '  ', ' ')
+
+#remove top 200 words
+dt$strippedgram <- rm_stopwords(dt$ngram, stopwords=Top200Words, ignore.case=TRUE)
+```
+
+
+##Generate tables using n-gram creator on each row
+
+multiWordGram returns all sets of n-grams based on provided size (n) and a vector of all words
+
+ngramTable: creates a table of all ngrams of set sizes in each ngram cell of each row of a table, outputs table with those grams and realted metadata (same columns as before) depends on multiWordGram
+
+Note:multiWordGram function cred to stackoverflow
+
+```{r multiWord, echo=TRUE, results='hide'}
+#creates n-grams based on list of strings (thanks to Stack Overflow)
+multiWordGram <-function(stringVector, ngramSize){
+
+  ngram <- data.table()
+
+  ng <- textcnt(stringVector, method = "string", n=ngramSize, tolower = FALSE)
+
+  if(ngramSize==1){
+    ngram <- data.table(w1 = names(ng), freq = unclass(ng), length=nchar(names(ng)))  
+  }
+  else {
+    ngram <- data.table(w1w2 = names(ng), freq = unclass(ng), length=nchar(names(ng)))
+  }
+  return(ngram)
+}
+
+#Output gram of desired link in new subsection of dt
+ngramTable <- function(table, size){
+  outTable <- data.frame(ngram=NA, drug=NA, date=NA, filename=NA, isSE=NA)
+  rows<-rownames(table)
+  for (row in rows){
+    currRow <- table[row,]
+    words <- as.character(currRow[7])
+    currGram <- multiWordGram(words,size)
+    #print(currGram)
+    if(length(gregexpr(",", words)[[1]]) >= size-1){
+      for(gram in currGram){
+        newRow<-data.frame(ngram=gram,drug=currRow[3], date=currRow[4],filename=currRow[5],isSE=NA)
+        suppressWarnings(outTable <- rbind(outTable,newRow))
+      }
+    }
+  }
+  return(outTable)
+}
+
+#dt <- dt[(which(nchar(dt$ngram) > 2)),]
+#delete the rows where word list is empty
+dt<- dt[!dt$strippedgram %in% 'character(0)',]
+
+#generate 1 gram tables
+suppressWarnings(onegram.table <- ngramTable(dt,1))
+#some cleanup
+onegram.table <- onegram.table[(which(nchar(onegram.table$ngram) > 2)),]
+onegram.table <- onegram.table[!onegram.table$ngram %in% 'list c',]
+onegram.table <- onegram.table[!onegram.table$ngram %in% 'list',]
+onegram.table <- onegram.table[!grepl("\\bc \\b", onegram.table$ngram),]
+onegram.table <- onegram.table[!grepl("\\bc\\b", onegram.table$ngram),]
+
+#generate table of bigrams
+suppressWarnings(bigram.table <- ngramTable(dt,2))
+#some cleanup
+bigram.table <- bigram.table[(which(nchar(bigram.table$ngram) > 2)),]
+bigram.table <- bigram.table[!bigram.table$ngram %in% 'list c',]
+bigram.table <- bigram.table[!grepl("\\blist\\b", bigram.table$ngram),]
+bigram.table <- bigram.table[!grepl("\\bc \\b", bigram.table$ngram),]
+
+#same for trigram
+suppressWarnings(trigram.table <- ngramTable(dt,3))
+trigram.table <- trigram.table[(which(nchar(trigram.table$ngram) > 2)),]
+trigram.table <- trigram.table[!trigram.table$ngram %in% 'list c',]
+trigram.table <- trigram.table[!grepl("\\bc \\b", trigram.table$ngram),]
+trigram.table <- trigram.table[!grepl("\\blist\\b", trigram.table$ngram),]
+
+#training tables
+all.onegram <- as.character(onegram.table$ngram)
+onegram.train <- as.data.frame(table(unlist(all.onegram)))
+colnames(onegram.train) <- c('ngram','Freq')
+onegram.train <- onegram.train[order(- onegram.train$Freq),]
+onegram.train$isSe <- NA
+#only train/test on first 500 rows
+onegram.train <- onegram.train[1:500,]
+
+all.bigram <- as.character(bigram.table$ngram)
+bigram.train <- as.data.frame(table(unlist(all.bigram)))
+colnames(bigram.train) <- c('ngram','Freq')
+bigram.train$isSe <- NA
+bigram.train <- bigram.train[order(- bigram.train$Freq),]
+bigram.train <- bigram.train[1:500,]
+
+all.trigram <- as.character(trigram.table$ngram)
+trigram.train <- as.data.frame(table(unlist(all.trigram)))
+colnames(trigram.train) <- c('ngram','Freq')
+trigram.train$isSe <- NA
+trigram.train<-trigram.train[order(- trigram.train$Freq),]
+trigram.train<- trigram.train[1:500,]
+
+```
+
+##Output the training and gram tables to be analyzed
+
+```{r outputTables, echo=TRUE, results='hide'}
+#output all tables
+
+#write.csv(onegram.table,'/Users/jhester/Desktop/thesis-code/SEGrams/1gram-table.csv')
+#write.csv(bigram.table,'/Users/jhester/Desktop/thesis-code/SEGrams/2gram-table.csv')
+#write.csv(trigram.table,'/Users/jhester/Desktop/thesis-code/SEGrams/3gram-table.csv')
+
+#write.csv(onegram.table,'/Users/jhester/Desktop/thesis-code/NewSEGrams/1gram-table.csv')
+#write.csv(bigram.table,'/Users/jhester/Desktop/thesis-code/NewSEGrams/2gram-table.csv')
+#write.csv(trigram.table,'/Users/jhester/Desktop/thesis-code/NewSEGrams/3gram-table.csv')
+```
+
+```{r outputTraining, echo=TRUE, results='hide'}
+#training
+write.csv(onegram.train,'/Users/jhester/Desktop/thesis-code/SEGrams/1gram-table-train.csv')
+write.csv(bigram.train,'/Users/jhester/Desktop/thesis-code/SEGrams/2gram-table-train.csv')
+write.csv(trigram.train,'/Users/jhester/Desktop/thesis-code/SEGrams/3gram-table-train.csv')
+
+```

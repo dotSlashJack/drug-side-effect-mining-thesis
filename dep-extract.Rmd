@@ -1,0 +1,262 @@
+---
+title: "Dependency Extractor"
+author: "Jack Hester"
+date: "3/1/2019"
+#output: pdf_document
+output: html_document
+---
+```{r setup, results='hide', echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+#install.packages('dplyr', dependencies = TRUE, repos = "http://cran.us.r-project.org")
+#install.packages('compare', dependencies = TRUE, repos = "http://cran.us.r-project.org")
+#install.packages('prodlim', dependencies = TRUE, repos = "http://cran.us.r-project.org")
+#install.packages("data.table", dependencies=TRUE, repos = "http://cran.us.r-project.org")
+#install.packages("kableExtra")
+library(knitr)
+library(dplyr)
+library(compare)
+library(data.table)
+library(prodlim)
+library(stringr)
+require(plyr) 
+library(kableExtra)
+library(stringr)
+```
+
+##1) Import the top 10 drugs merged conll table
+```{r importcsv, results='hide', echo=TRUE}
+#mergedConllTables <- read.csv('/Users/jhester/Desktop/thesis-code/old-merged-table.csv')
+mergedConllTables <- read.csv('/Users/jhester/Desktop/thesis-code/new-drug-merged-table.csv')
+```
+
+##2) Generate a table with only relevant sentences (filtered by lemma)
+
+####variables used here:
+
+lemmas: vector of lemmas (verbs) to look at based on freq analysis
+
+dt: copy of mergedConllTables
+
+selectedLemmas.unfiltered: rows of dt (conll) where LEMMA matches one in lemmas
+
+selectedLemmas: rows of dt where LEMMA matches one in lemmas AND it's a verb
+
+```{r filterlemmas, results='hide', echo=TRUE}
+lemmas <- c("Feel", "feel", "Lose", "lose", "Start", "start", "Cause", "cause", "Develop", "develop", "Experience", "experience", "Notice", "notice", "Get", "get", "Become", "become", "Change", "change", "Give", "give", "Have", "have")
+dt<-mergedConllTables
+#clean up common misspellings/errors early as caught
+dt$LEMMA<-str_replace(dt$LEMMA, "\\bive\\b", 'have')
+dt$LEMMA<-str_replace(dt$LEMMA, "\\bIve\\b", 'have')
+
+dt$FORM<-str_replace(dt$FORM, "\'ve\\b", 'have')
+dt$FORM<-str_replace(dt$FORM, "n\'t", 'not')
+dt$FORM<-str_replace(dt$FORM, "N\'T", 'NOT')
+#dt$LEMMA
+# selectedLemmas now contains all rows where
+selectedLemmas.unfiltered <- dt[dt$LEMMA %in% lemmas,]
+
+#make sure the action/indicator word is a verb not noun, etc.
+allowed.pos <- c('VB','VBD','VBG','VBN','VBP','VBZ')
+selectedLemmas <- selectedLemmas.unfiltered[selectedLemmas.unfiltered$POSTAG %in% allowed.pos,]
+```
+
+##3) Build a partial dependency tree
+
+####variables used here:
+
+headTable: subset of selectedLemmas with only HEADs, document ids, and sentence ids
+
+headsIDsTable: subset of selectedLemmas with only IDs, document ids, and sentence ids
+
+allHEADTable: subset of dt with only HEADs, document ids, and sentence ids
+
+allIDTable: subset of dt with only HEADs, document ids, and sentence ids
+
+relatedIDRows: rows where sentence & doc ids match and ID matches selected HEADs
+
+relatedHEADRows: rows where sentence & doc ids match and the selected HEADs match another head in that sentence (this is like getting where the IDs original EHAD pointed to match back to a HEAD (same number, different word) in that sentence (but with less steps)
+
+IDToHEADRows: rows where headsIDsTable (selected IDs of lemma rows where HEAD was also extracted) match allHEADTable (any head)
+
+IDRowsComplete: the FULL row where relatedIDRows matched (not just ID, sentence id, doc id)
+
+HEADRowsComplete: the FULL row where relatedIDRows matched (not just HEAD, sentence id, doc id)
+
+IDToHEADComplete: the FULL row where relatedIDRows matched (not just (ID->)HEAD, sentence id, doc id)
+
+```{r buildTree, results='hide', echo=TRUE}
+
+#1 get the HEAD where word appears
+headTable <- data.frame(selectedLemmas$HEAD,selectedLemmas$DOCUMENT.ID,selectedLemmas$SENTENCE.ID)
+headsIDsTable <- data.frame(selectedLemmas$ID,selectedLemmas$DOCUMENT.ID,selectedLemmas$SENTENCE.ID)
+#set standard col names for comparison later
+colnames(headTable) <- c('INDEX.VAL','DOCUMENT.ID','SENTENCE.ID')
+colnames(headsIDsTable) <- c('INDEX.VAL','DOCUMENT.ID','SENTENCE.ID')
+
+#2 get IDs and from there matching heads to finish partial "dependency" tree
+#2a: create tables with all HEADs and IDs with only sentence/doc indexes for compare
+allHEADTable <- data.frame(dt$HEAD,dt$DOCUMENT.ID,dt$SENTENCE.ID)
+allIDTable <- data.frame(dt$ID,dt$DOCUMENT.ID,dt$SENTENCE.ID)
+colnames(allHEADTable) <- c('INDEX.VAL','DOCUMENT.ID','SENTENCE.ID')
+colnames(allIDTable) <- c('INDEX.VAL','DOCUMENT.ID','SENTENCE.ID')
+
+relatedIDRows <- semi_join(headTable, allIDTable)
+relatedHEADRows <- semi_join(headTable, allHEADTable)
+IDToHEADRows <- semi_join(headsIDsTable,allHEADTable)
+
+#2b: extract full contents of matching rows
+#set ID and HEAD col names correctly for compare to dt
+colnames(relatedIDRows) <- c('ID','DOCUMENT.ID','SENTENCE.ID')
+colnames(relatedHEADRows) <- c('HEAD','DOCUMENT.ID','SENTENCE.ID')
+#now compare
+IDRowsComplete <- semi_join(dt, relatedIDRows)
+HEADRowsComplete <- semi_join(dt, relatedHEADRows)
+IDToHEADComplete <- semi_join(dt, IDToHEADRows)
+
+#next, filter these and put into table for SVM (see next block)
+```
+```{r cleanup, echo=FALSE, results='hide'}
+rm(list = c('IDToHEADRows','relatedHEADRows','relatedIDRows','allIDTable','allHEADTable','headsIDsTable','headTable','selectedLemmas','selectedLemmas.unfiltered'))
+#print('cleaned up tables and values before generating ngrams table')
+```
+
+##4) Clean the table (dep tree) up before combining selected words into ngrams
+
+####variables used here:
+
+ngrams.partial: merge IDRowsComplete and HEADRowsComplete (see step 3)
+
+ngrams: all rows with word of interest, ngrams.partial and IDToHeadComplete
+
+POS.filters: filter words of interest to only POS's that make sense
+
+ngrams.refined.noneg: refine words of interest by POSTAG (POS.filters), but this excludes negation words that are important
+
+neg.filters: filter by DEPREL of neg (negation)
+
+negs: get the rows in ngrams with DEPREL of negation
+
+ngrams.refined: "final" ngrams with negation words included again
+
+```{r cleanTable, results='hide', echo=TRUE}
+#put into one table, filter sooon in this blocok
+#add description of block
+ngrams.partial <- rbind(IDRowsComplete,HEADRowsComplete)
+ngrams <- rbind(IDToHEADComplete,ngrams.partial)
+POS.filters <- c('NN', 'NNS','NNP','NNPS','VB','VBD','VBG','VBN','VBP','VBZ','JJ','JJR','JJS','RB', 'RBS','RBR','PRP','PRP$','WP','WP$','IN')
+
+#filter by POS for better results
+ngrams.refined.noneg <- ngrams[ngrams$POSTAG %in% POS.filters, ]
+#make sure we include any negation phrases otherwise missed
+neg.filters <- c('neg')
+negs <- ngrams[ngrams$DEPREL %in% neg.filters, ]
+ngrams.refined <- rbind(ngrams.refined.noneg, negs)
+#need to put each set of words with matching doc/sent id in ngram in that order, each gram in table as new row with drug name and date
+
+#fix contractions
+
+
+#now creating table that has the grams (based on sentence)
+```
+
+##5) Build a table by sentence (all grams in it) and output it
+
+####variables used here:
+
+rows: a vectorized list of all rows in ngrams to loop through
+
+prevSentence: previous sentence id if there is one, otherwise 'new'
+
+prevDOC: previous document id if there is one, otherwise 'new'
+
+currGram: the current ngram (if multiple words in same sentence/doc id)
+
+resultTable: a table with the final ngram, the drug name, the date, the file name, and a column to code later stating if it's a true side effect or not
+
+currRow: the current row being analyzed
+
+currDoc: current document id
+
+currSententence: current sentence id
+
+currWord: current word in currRow being added
+
+prevRow: previous row that was analyzed
+
+fullFileName: the file name for that sentence
+
+currDrug: the drug name for that sentence based on filename string
+
+dateRaw: raw form of the date of that sentence
+
+newRow: new row containing word (ngram), drug name, date, filename, and blank SE+/- coding columns to add onto full resultTable
+
+```{r buildTable, results='hidden', echo=TRUE}
+rows<- as.vector(rownames(ngrams.refined))
+
+prevDoc <- 'new'
+prevSentence <- '0'
+prevDoc <- '0'
+currGram <-''
+prevRow <-  ngrams.refined[1,]
+#blank table for results to go in
+resultTable <- data.frame(ngram=NA, drug=NA, date=NA, filename=NA, isSE=NA)
+#for loop goes over every row in the table
+for(row in rows){
+  currRow<- ngrams.refined[row,]
+  currDoc <- as.character(currRow$DOCUMENT.ID)
+  #print(currDoc)
+  currSentence <-  as.character(currRow$SENTENCE.ID)
+  #print(currSentence)
+  currWord <- as.character(currRow$FORM)
+  #currDate <- as.Date.character(dateRaw,"%d/%m/%Y")
+  if((currDoc==prevDoc && currSentence == prevSentence)||(prevDoc == '0' && prevSentence=='0')){
+    currGram <- paste(currGram, currWord)
+    prevDoc<-currDoc
+    prevSentence<-currSentence
+    prevRow <- currRow
+  }
+  else{ #have gotten to a new sentence
+    fullFileName <- as.character(prevRow$FILE.NAME)
+    currDrug <- strsplit(fullFileName, '_')[[1]][1]
+    dateRaw <- as.character(prevRow$DATE)
+    newRow = data.frame(ngram=currGram, drug=currDrug, date=dateRaw, filename=fullFileName, isSE=NA)
+    resultTable <- rbind(resultTable,newRow)
+    newRow <- NA
+    
+    prevDoc<-currDoc
+    prevSentence<-currSentence
+    prevRow <- currRow
+    #reset the current gram to ONLY current word
+    currGram <- currWord
+  }
+}
+```
+
+##6) Clean and output final ngram table
+```{r cleanAndOutput, results='asis', echo=TRUE}
+#delte first (NA) row
+resultTable = resultTable[-1,] 
+
+#holding<-resultTable #make a backup
+
+#clean up rows with only 1 word
+#first, get rows where only 1 word
+#create column containing number of words in ngram
+resultTable$numWords <- str_count(resultTable$ngram, '\\s+')+1
+oneWordRows <- as.vector(rownames(resultTable[resultTable$numWords<=1,]))
+#actually delete these rows
+resultTable <- resultTable[! rownames(resultTable) %in% oneWordRows,]
+#also clean any remaining 'duration available' because of lack of period
+resultTable$ngram<-str_replace(resultTable$ngram, " duration available", "")
+#delete column saying how many words in ngram column
+resultTable <- resultTable[,-6]
+
+#print result table out in html/pdf file
+kable(resultTable, caption="ngrams output table") %>%
+  kable_styling(c("striped", "bordered"))
+
+#export as CSV for SVM use and coding of +/-
+#write.csv(resultTable,'/Users/jhester/Desktop/thesis-code/ngram-table.csv')
+write.csv(resultTable,'/Users/jhester/Desktop/thesis-code/new-drug-ngram-table.csv')
+```

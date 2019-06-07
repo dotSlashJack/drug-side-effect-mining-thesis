@@ -1,0 +1,403 @@
+---
+title: "Side Effect Extractor"
+author: "Jack Hester"
+date: "3/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(stringr)
+```
+
+```{r import}
+#older drugs
+se.tagged.table.1gram <- read.csv('/Users/jhester/Desktop/thesis-code/SEGrams/1gram-table-complete.csv')
+se.tagged.table.2gram <- read.csv('/Users/jhester/Desktop/thesis-code/SEGrams/2gram-table-complete.csv')
+se.tagged.table.3gram <- read.csv('/Users/jhester/Desktop/thesis-code/SEGrams/3gram-table-complete.csv')
+
+#newer drugs
+se.tagged.table.1gram.n <- read.csv('/Users/jhester/Desktop/thesis-code/NewSEGrams/1gram-table-complete.csv')
+se.tagged.table.2gram.n <- read.csv('/Users/jhester/Desktop/thesis-code/NewSEGrams/2gram-table-complete.csv')
+se.tagged.table.3gram.n <- read.csv('/Users/jhester/Desktop/thesis-code/NewSEGrams/3gram-table-complete.csv')
+
+```
+
+```{r extractOlderSERows, results='hide'}
+onegram.table <- se.tagged.table.1gram
+bigram.table <- se.tagged.table.2gram
+trigram.table <- se.tagged.table.3gram
+#fix column names
+colnames(onegram.table) <- c('id','ngram','drug','date','filename','isSE')
+colnames(bigram.table) <- c('id','ngram','drug','date','filename','isSE')
+colnames(trigram.table) <- c('id','ngram','drug','date','filename','isSE')
+
+#get only rows where SE was found
+onegram.table <- onegram.table[onegram.table$isSE %in% '1',] 
+bigram.table <- bigram.table[bigram.table$isSE %in% '1',] 
+trigram.table <- trigram.table[trigram.table$isSE %in% '1',] 
+```
+
+```{r extractNewerSERows, results='hide'}
+onegram.table.n <- se.tagged.table.1gram.n
+bigram.table.n <- se.tagged.table.2gram.n
+trigram.table.n <- se.tagged.table.3gram.n
+#fix column names
+colnames(onegram.table.n) <- c('id','ngram','drug','date','filename','isSE')
+colnames(bigram.table.n) <- c('id','ngram','drug','date','filename','isSE')
+colnames(trigram.table.n) <- c('id','ngram','drug','date','filename','isSE')
+
+#get only rows where SE was found
+onegram.table.n <- onegram.table.n[onegram.table.n$isSE %in% '1',] 
+bigram.table.n <- bigram.table.n[bigram.table.n$isSE %in% '1',] 
+trigram.table.n <- trigram.table.n[trigram.table.n$isSE %in% '1',] 
+```
+
+```{r breakByDrug, echo='TRUE', results='include'}
+#older drugs
+#Advair Diskus
+Advair.onegram <- onegram.table[onegram.table$drug %in% 'Advair Diskus' ,]
+Advair.bigram <- bigram.table[bigram.table$drug %in% 'Advair Diskus' ,]
+Advair.trigram <- trigram.table[trigram.table$drug %in% 'Advair Diskus' ,]
+Advair.table <- rbind(Advair.onegram,Advair.bigram)
+Advair.table<- rbind(Advair.trigram,Advair.table)
+Advair.table <- Advair.table[,2:5]
+#also generate a frequency table for each extracted SE
+Advair.vector <- as.character(Advair.table$ngram)
+Advair.freq <- as.data.frame(table(unlist(Advair.vector)))
+colnames(Advair.freq) <- c('ngram','Freq')
+Advair.freq <- Advair.freq[order(- Advair.freq$Freq),] 
+
+#Crestor
+Crestor.onegram <- onegram.table[onegram.table$drug %in% 'Crestor' ,]
+Crestor.bigram <- bigram.table[bigram.table$drug %in% 'Crestor' ,]
+Crestor.trigram <- trigram.table[trigram.table$drug %in% 'Crestor' ,]
+Crestor.table <- rbind(Crestor.onegram,Crestor.bigram)
+Crestor.table<- rbind(Crestor.trigram,Crestor.table)
+Crestor.table <- Crestor.table[,2:5]
+Crestor.vector <- as.character(Crestor.table$ngram)
+Crestor.freq <- as.data.frame(table(unlist(Crestor.vector)))
+colnames(Crestor.freq) <- c('ngram','Freq')
+Crestor.freq <- Crestor.freq[order(- Crestor.freq$Freq),] 
+
+#Januvia
+Januvia.onegram <- onegram.table[onegram.table$drug %in% 'Januvia' ,]
+Januvia.bigram <- bigram.table[bigram.table$drug %in% 'Januvia' ,]
+Januvia.trigram <- trigram.table[trigram.table$drug %in% 'Januvia' ,]
+Januvia.table <- rbind(Januvia.onegram,Januvia.bigram)
+Januvia.table<- rbind(Januvia.trigram,Januvia.table)
+Januvia.table <- Januvia.table[,2:5]
+Januvia.vector <- as.character(Januvia.table$ngram)
+Januvia.freq <- as.data.frame(table(unlist(Januvia.vector)))
+colnames(Januvia.freq) <- c('ngram','Freq') 
+Januvia.freq <- Januvia.freq[order(- Januvia.freq$Freq),] 
+
+#Lantus Solostar
+Lantus.onegram <- onegram.table[onegram.table$drug %in% 'Lantus Solostar' ,]
+Lantus.bigram <- bigram.table[bigram.table$drug %in% 'Lantus Solostar' ,]
+Lantus.trigram <- trigram.table[trigram.table$drug %in% 'Lantus Solostar' ,]
+Lantus.table <- rbind(Lantus.onegram,Lantus.bigram)
+Lantus.table<- rbind(Lantus.trigram,Lantus.table)
+Lantus.table <- Lantus.table[,2:5]
+Lantus.vector <- as.character(Lantus.table$ngram)
+Lantus.freq <- as.data.frame(table(unlist(Lantus.vector)))
+colnames(Lantus.freq) <- c('ngram','Freq')
+Lantus.freq <- Lantus.freq[order(- Lantus.freq$Freq),] 
+
+#Lyrica
+Lyrica.onegram <- onegram.table[onegram.table$drug %in% 'Lyrica' ,]
+Lyrica.bigram <- bigram.table[bigram.table$drug %in% 'Lyrica' ,]
+Lyrica.trigram <- trigram.table[trigram.table$drug %in% 'Lyrica' ,]
+Lyrica.table <- rbind(Lyrica.onegram,Lyrica.bigram)
+Lyrica.table<- rbind(Lyrica.trigram,Lyrica.table)
+Lyrica.table <- Lyrica.table[,2:5]
+Lyrica.vector <- as.character(Lyrica.table$ngram)
+Lyrica.freq <- as.data.frame(table(unlist(Lyrica.vector)))
+colnames(Lyrica.freq) <- c('ngram','Freq')
+Lyrica.freq <- Lyrica.freq[order(- Lyrica.freq$Freq),] 
+
+#Nexium
+Nexium.onegram <- onegram.table[onegram.table$drug %in% 'Nexium' ,]
+Nexium.bigram <- bigram.table[bigram.table$drug %in% 'Nexium' ,]
+Nexium.trigram <- trigram.table[trigram.table$drug %in% 'Nexium' ,]
+Nexium.table <- rbind(Nexium.onegram,Nexium.bigram)
+Nexium.table<- rbind(Nexium.trigram,Nexium.table)
+Nexium.table <- Nexium.table[,2:5]
+Nexium.vector <- as.character(Nexium.table$ngram)
+Nexium.freq <- as.data.frame(table(unlist(Nexium.vector)))
+colnames(Nexium.freq) <- c('ngram','Freq')
+Nexium.freq <- Nexium.freq[order(- Nexium.freq$Freq),] 
+
+#Spiriva
+Spiriva.onegram <- onegram.table[onegram.table$drug %in% 'Spiriva' ,]
+Spiriva.bigram <- bigram.table[bigram.table$drug %in% 'Spiriva' ,]
+Spiriva.trigram <- trigram.table[trigram.table$drug %in% 'Spiriva' ,]
+Spiriva.table <- rbind(Spiriva.onegram,Spiriva.bigram)
+Spiriva.table<- rbind(Spiriva.trigram,Spiriva.table)
+Spiriva.table <- Spiriva.table[,2:5]
+Spiriva.vector <- as.character(Spiriva.table$ngram)
+Spiriva.freq <- as.data.frame(table(unlist(Spiriva.vector)))
+colnames(Spiriva.freq) <- c('ngram','Freq')
+Spiriva.freq <- Spiriva.freq[order(- Spiriva.freq$Freq),] 
+
+#Synthroid
+Synthroid.onegram <- onegram.table[onegram.table$drug %in% 'Synthroid' ,]
+Synthroid.bigram <- bigram.table[bigram.table$drug %in% 'Synthroid' ,]
+Synthroid.trigram <- trigram.table[trigram.table$drug %in% 'Synthroid' ,]
+Synthroid.table <- rbind(Synthroid.onegram,Synthroid.bigram)
+Synthroid.table<- rbind(Synthroid.trigram,Synthroid.table)
+Synthroid.table <- Synthroid.table[,2:5]
+Synthroid.vector <- as.character(Synthroid.table$ngram)
+Synthroid.freq <- as.data.frame(table(unlist(Synthroid.vector)))
+colnames(Synthroid.freq) <- c('ngram','Freq')
+Synthroid.freq <- Synthroid.freq[order(- Synthroid.freq$Freq),] 
+
+#Ventolin HFA
+Ventolin.onegram <- onegram.table[onegram.table$drug %in% 'Ventolin HFA' ,]
+Ventolin.bigram <- bigram.table[bigram.table$drug %in% 'Ventolin HFA' ,]
+Ventolin.trigram <- trigram.table[trigram.table$drug %in% 'Ventolin HFA' ,]
+Ventolin.table <- rbind(Ventolin.onegram,Ventolin.bigram)
+Ventolin.table<- rbind(Ventolin.trigram,Ventolin.table)
+Ventolin.table <- Ventolin.table[,2:5]
+Ventolin.vector <- as.character(Ventolin.table$ngram)
+Ventolin.freq <- as.data.frame(table(unlist(Ventolin.vector)))
+colnames(Ventolin.freq) <- c('ngram','Freq')
+Ventolin.freq <- Ventolin.freq[order(- Ventolin.freq$Freq),] 
+
+#Vyvanse
+Vyvanse.onegram <- onegram.table[onegram.table$drug %in% 'Vyvanse' ,]
+Vyvanse.bigram <- bigram.table[bigram.table$drug %in% 'Vyvanse' ,]
+Vyvanse.trigram <- trigram.table[trigram.table$drug %in% 'Vyvanse' ,]
+Vyvanse.table <- rbind(Vyvanse.onegram,Vyvanse.bigram)
+Vyvanse.table<- rbind(Vyvanse.trigram,Vyvanse.table)
+Vyvanse.table <- Vyvanse.table[,2:5]
+Vyvanse.vector <- as.character(Vyvanse.table$ngram)
+Vyvanse.freq <- as.data.frame(table(unlist(Vyvanse.vector)))
+colnames(Vyvanse.freq) <- c('ngram','Freq')
+Vyvanse.freq <- Vyvanse.freq[order(- Vyvanse.freq$Freq),] 
+```
+
+```{r newerByDrugExtraction }
+#Actemra
+Actemra.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Actemra' ,]
+Actemra.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Actemra' ,]
+Actemra.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Actemra' ,]
+Actemra.table <- rbind(Actemra.onegram,Actemra.bigram)
+Actemra.table<- rbind(Actemra.trigram,Actemra.table)
+Actemra.table <- Actemra.table[,2:5]
+#also generate a frequency table for each extracted SE
+Actemra.vector <- as.character(Actemra.table$ngram)
+Actemra.freq <- as.data.frame(table(unlist(Actemra.vector)))
+colnames(Actemra.freq) <- c('ngram','Freq')
+Actemra.freq <- Actemra.freq[order(- Actemra.freq$Freq),] 
+
+#Ajovy
+Ajovy.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Ajovy' ,]
+Ajovy.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Ajovy' ,]
+Ajovy.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Ajovy' ,]
+Ajovy.table <- rbind(Ajovy.onegram,Ajovy.bigram)
+Ajovy.table<- rbind(Ajovy.trigram,Ajovy.table)
+Ajovy.table <- Ajovy.table[,2:5]
+#also generate a frequency table for each extracted SE
+Ajovy.vector <- as.character(Ajovy.table$ngram)
+Ajovy.freq <- as.data.frame(table(unlist(Ajovy.vector)))
+colnames(Ajovy.freq) <- c('ngram','Freq')
+Ajovy.freq <- Ajovy.freq[order(- Ajovy.freq$Freq),] 
+
+#Amiovig
+Amiovig.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Amiovig' ,]
+Amiovig.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Amiovig' ,]
+Amiovig.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Amiovig' ,]
+Amiovig.table <- rbind(Amiovig.onegram,Amiovig.bigram)
+Amiovig.table<- rbind(Amiovig.trigram,Amiovig.table)
+Amiovig.table <- Amiovig.table[,2:5]
+#also generate a frequency table for each extracted SE
+Amiovig.vector <- as.character(Amiovig.table$ngram)
+Amiovig.freq <- as.data.frame(table(unlist(Amiovig.vector)))
+colnames(Amiovig.freq) <- c('ngram','Freq')
+Amiovig.freq <- Amiovig.freq[order(- Amiovig.freq$Freq),] 
+
+#Biktarvy
+Biktarvy.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Biktarvy' ,]
+Biktarvy.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Biktarvy' ,]
+Biktarvy.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Biktarvy' ,]
+Biktarvy.table <- rbind(Biktarvy.onegram,Biktarvy.bigram)
+Biktarvy.table<- rbind(Biktarvy.trigram,Biktarvy.table)
+Biktarvy.table <- Biktarvy.table[,2:5]
+#also generate a frequency table for each extracted SE
+Biktarvy.vector <- as.character(Biktarvy.table$ngram)
+Biktarvy.freq <- as.data.frame(table(unlist(Biktarvy.vector)))
+colnames(Biktarvy.freq) <- c('ngram','Freq')
+Biktarvy.freq <- Biktarvy.freq[order(- Biktarvy.freq$Freq),] 
+
+#Dupixent
+Dupixent.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Dupixent' ,]
+Dupixent.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Dupixent' ,]
+Dupixent.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Dupixent' ,]
+Dupixent.table <- rbind(Dupixent.onegram,Dupixent.bigram)
+Dupixent.table<- rbind(Dupixent.trigram,Dupixent.table)
+Dupixent.table <- Dupixent.table[,2:5]
+#also generate a frequency table for each extracted SE
+Dupixent.vector <- as.character(Dupixent.table$ngram)
+Dupixent.freq <- as.data.frame(table(unlist(Dupixent.vector)))
+colnames(Dupixent.freq) <- c('ngram','Freq')
+Dupixent.freq <- Dupixent.freq[order(- Dupixent.freq$Freq),] 
+
+#Kevzara
+Kevzara.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Kevzara' ,]
+Kevzara.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Kevzara' ,]
+Kevzara.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Kevzara' ,]
+Kevzara.table <- rbind(Kevzara.onegram,Kevzara.bigram)
+Kevzara.table<- rbind(Kevzara.trigram,Kevzara.table)
+Kevzara.table <- Kevzara.table[,2:5]
+#also generate a frequency table for each extracted SE
+Kevzara.vector <- as.character(Kevzara.table$ngram)
+Kevzara.freq <- as.data.frame(table(unlist(Kevzara.vector)))
+colnames(Kevzara.freq) <- c('ngram','Freq')
+Kevzara.freq <- Kevzara.freq[order(- Kevzara.freq$Freq),] 
+
+#Mayyret
+Mayyret.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Mayyret' ,]
+Mayyret.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Mayyret' ,]
+Mayyret.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Mayyret' ,]
+Mayyret.table <- rbind(Mayyret.onegram,Mayyret.bigram)
+Mayyret.table<- rbind(Mayyret.trigram,Mayyret.table)
+Mayyret.table <- Mayyret.table[,2:5]
+#also generate a frequency table for each extracted SE
+Mayyret.vector <- as.character(Mayyret.table$ngram)
+Mayyret.freq <- as.data.frame(table(unlist(Mayyret.vector)))
+colnames(Mayyret.freq) <- c('ngram','Freq')
+Mayyret.freq <- Mayyret.freq[order(- Mayyret.freq$Freq),] 
+
+#Ozempic
+Ozempic.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Ozempic' ,]
+Ozempic.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Ozempic' ,]
+Ozempic.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Ozempic' ,]
+Ozempic.table <- rbind(Ozempic.onegram,Ozempic.bigram)
+Ozempic.table<- rbind(Ozempic.trigram,Ozempic.table)
+Ozempic.table <- Ozempic.table[,2:5]
+#also generate a frequency table for each extracted SE
+Ozempic.vector <- as.character(Ozempic.table$ngram)
+Ozempic.freq <- as.data.frame(table(unlist(Ozempic.vector)))
+colnames(Ozempic.freq) <- c('ngram','Freq')
+Ozempic.freq <- Ozempic.freq[order(- Ozempic.freq$Freq),] 
+
+#Rhofade
+Rhofade.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Rhofade' ,]
+Rhofade.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Rhofade' ,]
+Rhofade.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Rhofade' ,]
+Rhofade.table <- rbind(Rhofade.onegram,Rhofade.bigram)
+Rhofade.table<- rbind(Rhofade.trigram,Rhofade.table)
+Rhofade.table <- Rhofade.table[,2:5]
+#also generate a frequency table for each extracted SE
+Rhofade.vector <- as.character(Rhofade.table$ngram)
+Rhofade.freq <- as.data.frame(table(unlist(Rhofade.vector)))
+colnames(Rhofade.freq) <- c('ngram','Freq')
+Rhofade.freq <- Rhofade.freq[order(- Rhofade.freq$Freq),] 
+
+#Shingrix
+Shingrix.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Shingrix' ,]
+Shingrix.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Shingrix' ,]
+Shingrix.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Shingrix' ,]
+Shingrix.table <- rbind(Shingrix.onegram,Shingrix.bigram)
+Shingrix.table<- rbind(Shingrix.trigram,Shingrix.table)
+Shingrix.table <- Shingrix.table[,2:5]
+#also generate a frequency table for each extracted SE
+Shingrix.vector <- as.character(Shingrix.table$ngram)
+Shingrix.freq <- as.data.frame(table(unlist(Shingrix.vector)))
+colnames(Shingrix.freq) <- c('ngram','Freq')
+Shingrix.freq <- Shingrix.freq[order(- Shingrix.freq$Freq),] 
+
+#Siliq
+Siliq.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Siliq' ,]
+Siliq.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Siliq' ,]
+Siliq.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Siliq' ,]
+Siliq.table <- rbind(Siliq.onegram,Siliq.bigram)
+Siliq.table<- rbind(Siliq.trigram,Siliq.table)
+Siliq.table <- Siliq.table[,2:5]
+#also generate a frequency table for each extracted SE
+Siliq.vector <- as.character(Siliq.table$ngram)
+Siliq.freq <- as.data.frame(table(unlist(Siliq.vector)))
+colnames(Siliq.freq) <- c('ngram','Freq')
+Siliq.freq <- Siliq.freq[order(- Siliq.freq$Freq),] 
+
+#Symproic
+Symproic.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Symproic' ,]
+Symproic.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Symproic' ,]
+Symproic.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Symproic' ,]
+Symproic.table <- rbind(Symproic.onegram,Symproic.bigram)
+Symproic.table<- rbind(Symproic.trigram,Symproic.table)
+Symproic.table <- Symproic.table[,2:5]
+#also generate a frequency table for each extracted SE
+Symproic.vector <- as.character(Symproic.table$ngram)
+Symproic.freq <- as.data.frame(table(unlist(Symproic.vector)))
+colnames(Symproic.freq) <- c('ngram','Freq')
+Symproic.freq <- Symproic.freq[order(- Symproic.freq$Freq),] 
+
+#Trulance
+Trulance.onegram <- onegram.table.n[onegram.table.n$drug %in% 'Trulance' ,]
+Trulance.bigram <- bigram.table.n[bigram.table.n$drug %in% 'Trulance' ,]
+Trulance.trigram <- trigram.table.n[trigram.table.n$drug %in% 'Trulance' ,]
+Trulance.table <- rbind(Trulance.onegram,Trulance.bigram)
+Trulance.table<- rbind(Trulance.trigram,Trulance.table)
+Trulance.table <- Trulance.table[,2:5]
+#also generate a frequency table for each extracted SE
+Trulance.vector <- as.character(Trulance.table$ngram)
+Trulance.freq <- as.data.frame(table(unlist(Trulance.vector)))
+colnames(Trulance.freq) <- c('ngram','Freq')
+Trulance.freq <- Trulance.freq[order(- Trulance.freq$Freq),] 
+```
+
+```{r outputSEAndFreqOlder}
+#old
+write.csv(Advair.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Advair-freq.csv')
+write.csv(Crestor.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Crestor-freq.csv')
+write.csv(Januvia.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Januvia-freq.csv')
+write.csv(Lantus.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Lantus-freq.csv')
+write.csv(Lyrica.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Lyrica-freq.csv')
+write.csv(Nexium.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Nexium-freq.csv')
+write.csv(Spiriva.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Spiriva-freq.csv')
+write.csv(Synthroid.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Synthroid-freq.csv')
+write.csv(Ventolin.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Ventolin-freq.csv')
+write.csv(Vyvanse.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Vyvanse-freq.csv')
+```
+
+```{r outputSEAndFreqNewer}
+#new
+write.csv(Actemra.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Actemra-freq.csv')
+write.csv(Ajovy.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Ajovy-freq.csv')
+write.csv(Amiovig.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Amiovig-freq.csv')
+write.csv(Biktarvy.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Biktarvy-freq.csv')
+write.csv(Dupixent.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Dupixent-freq.csv')
+write.csv(Kevzara.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Kevzara-freq.csv')
+write.csv(Mayyret.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Mayyret-freq.csv')
+write.csv(Ozempic.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Ozempic-freq.csv')
+write.csv(Rhofade.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Rhofade-freq.csv')
+write.csv(Shingrix.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Shingrix-freq.csv')
+write.csv(Siliq.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Siliq-freq.csv')
+write.csv(Symproic.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Symproic-freq.csv')
+write.csv(Trulance.freq,'/Users/jhester/Desktop/thesis-code/final-freq-tables/Trulance-freq.csv')
+```
+
+
+##Get 45 random rows from all side effect n-grams to calculate F score
+```{r randomRows, echo=TRUE, results='hide'}
+#get 15 from one-grams
+onegram.sample <- onegram.table[sample(nrow(onegram.table), 15), ]
+onegram.sample <- onegram.sample[,2:5]
+onegram.sample$wasCorrect <- NA
+#bigrams
+bigram.sample <- bigram.table[sample(nrow(bigram.table), 15), ]
+bigram.sample <- bigram.sample[,2:5]
+bigram.sample$wasCorrect <- NA
+#trigrams
+trigram.sample <- trigram.table[sample(nrow(trigram.table), 15), ]
+trigram.sample <- trigram.sample[,2:5]
+trigram.sample$wasCorrect <- NA
+
+#make a table of them all
+test.table <- rbind(onegram.sample,bigram.sample)
+test.table <- rbind(trigram.sample,test.table)
+#write to disk so it can be marked up easily
+write.csv(test.table,'/Users/jhester/Desktop/thesis-code/samples-to-evaluate.csv')
+```
